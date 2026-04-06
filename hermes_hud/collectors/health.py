@@ -196,6 +196,7 @@ def collect_health(hermes_dir: str | None = None) -> HealthState:
     global _dotenv_cache
     _dotenv_cache = None  # Reset cache on each collection
 
+    known_names = {key_name for key_name, _, _ in EXPECTED_KEYS}
     for key_name, source, note in EXPECTED_KEYS:
         present = _check_env_key(key_name, hermes_dir)
         state.keys.append(KeyStatus(
@@ -204,6 +205,17 @@ def collect_health(hermes_dir: str | None = None) -> HealthState:
             present=present,
             note=note if not present else "",
         ))
+
+    # Auto-discover any additional API keys/tokens found in .env files
+    for extra_key in sorted(_get_dotenv_keys(hermes_dir)):
+        if extra_key not in known_names:
+            if any(extra_key.endswith(suffix) for suffix in ("_API_KEY", "_TOKEN", "_SECRET")):
+                state.keys.append(KeyStatus(
+                    name=extra_key,
+                    source="env",
+                    present=True,
+                    note="discovered",
+                ))
 
     # Services
     state.services.append(

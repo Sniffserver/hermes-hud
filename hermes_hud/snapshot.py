@@ -12,9 +12,10 @@ from datetime import datetime
 from pathlib import Path
 
 from .collect import collect_all
+from .collectors.utils import default_hermes_dir
 from .models import HUDSnapshot
 
-SNAPSHOT_DIR = os.path.expanduser("~/.hermes-hud")
+SNAPSHOT_DIR = os.path.join(default_hermes_dir(), ".hud")
 
 
 def _snapshot_file() -> str:

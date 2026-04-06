@@ -105,13 +105,16 @@ class AgentsState:
         return [p for p in self.processes if not p.running]
 
 
-# Agent processes to scan for
+# Agent processes to scan for — add new entries as the ecosystem grows
 AGENT_PROCESSES = [
     ("hermes", "hermes"),
     ("claude", "claude"),
     ("codex", "codex"),
     ("opencode", "opencode"),
     ("llama-server", "llama-server"),
+    ("aider", "aider"),
+    ("cursor", "cursor"),
+    ("windsurf", "windsurf"),
 ]
 
 # Shells — excluded from "interesting" unmatched pane display

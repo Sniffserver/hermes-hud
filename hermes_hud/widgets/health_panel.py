@@ -7,6 +7,21 @@ from textual.widgets import Static
 
 from ..collectors.health import HealthState
 
+# Provider → primary API key name
+_PROVIDER_KEY_MAP = {
+    "anthropic": "ANTHROPIC_API_KEY",
+    "openrouter": "OPENROUTER_API_KEY",
+    "fireworks": "FIREWORKS_API_KEY",
+    "xai": "XAI_API_KEY",
+}
+_ALWAYS_CRITICAL = {"TELEGRAM_BOT_TOKEN"}
+
+
+def _critical_keys(provider: str) -> set[str]:
+    """Return the set of key names considered critical for the given provider."""
+    primary = _PROVIDER_KEY_MAP.get(provider.lower(), "ANTHROPIC_API_KEY")
+    return {primary} | _ALWAYS_CRITICAL
+
 
 class HealthPanel(Static):
     """Panel showing system health status."""
@@ -74,16 +89,18 @@ class HealthPanel(Static):
         if not h.hermes_dir_exists:
             yield Static("  [red bold]✗ ~/.hermes directory not found![/red bold]")
 
-        missing_critical = [k for k in h.keys if not k.present and k.name in (
-            "ANTHROPIC_API_KEY", "TELEGRAM_BOT_TOKEN"
-        )]
+        critical = _critical_keys(h.config_provider)
+        missing_critical = []
+        missing_optional = []
+        for k in h.keys:
+            if not k.present:
+                if k.name in critical:
+                    missing_critical.append(k)
+                else:
+                    missing_optional.append(k)
         if missing_critical:
             for k in missing_critical:
                 yield Static(f"  [red bold]⚠ {k.name} missing — core functionality affected[/red bold]")
-
-        missing_optional = [k for k in h.keys if not k.present and k.name not in (
-            "ANTHROPIC_API_KEY", "TELEGRAM_BOT_TOKEN"
-        )]
         if missing_optional:
             names = ", ".join(k.name for k in missing_optional)
             yield Static(f"  [yellow]◐ Optional keys not set: {names}[/yellow]")

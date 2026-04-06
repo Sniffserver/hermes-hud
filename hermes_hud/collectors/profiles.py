@@ -13,8 +13,11 @@ from urllib.parse import urlparse
 from urllib.request import urlopen
 from urllib.error import URLError
 
+from .memory import MEMORY_MAX_CHARS, USER_MAX_CHARS
 from .utils import default_hermes_dir, safe_get
 from ..models import ProfileInfo, ProfilesState
+
+_ALIAS_BIN_DIRS = [os.path.expanduser("~/.local/bin"), "/usr/local/bin"]
 
 
 def _parse_yaml_simple(text: str) -> dict:
@@ -88,8 +91,8 @@ def _read_soul_summary(profile_dir: Path) -> str:
 def _read_memory_stats(profile_dir: Path) -> dict:
     """Read memory entry counts and char sizes."""
     stats = {
-        "memory_entries": 0, "memory_chars": 0, "memory_max_chars": 2200,
-        "user_entries": 0, "user_chars": 0, "user_max_chars": 1375,
+        "memory_entries": 0, "memory_chars": 0, "memory_max_chars": MEMORY_MAX_CHARS,
+        "user_entries": 0, "user_chars": 0, "user_max_chars": USER_MAX_CHARS,
     }
     for fname, prefix in [("MEMORY.md", "memory"), ("USER.md", "user")]:
         fpath = profile_dir / "memories" / fname
@@ -260,15 +263,15 @@ def _collect_single_profile(profile_dir: Path, name: str, is_default: bool = Fal
 
     # Memory limits from config
     mem_cfg = config.get("memory", {})
-    mem_max = 2200
-    user_max = 1375
+    mem_max = MEMORY_MAX_CHARS
+    user_max = USER_MAX_CHARS
     if isinstance(mem_cfg, dict):
         try:
-            mem_max = int(mem_cfg.get("memory_char_limit", 2200))
+            mem_max = int(mem_cfg.get("memory_char_limit", MEMORY_MAX_CHARS))
         except (ValueError, TypeError):
             pass
         try:
-            user_max = int(mem_cfg.get("user_char_limit", 1375))
+            user_max = int(mem_cfg.get("user_char_limit", USER_MAX_CHARS))
         except (ValueError, TypeError):
             pass
 
@@ -285,7 +288,7 @@ def _collect_single_profile(profile_dir: Path, name: str, is_default: bool = Fal
         port = urlparse(base_url).port if base_url else None
     except Exception:
         port = None
-    has_alias = Path(os.path.expanduser(f"~/.local/bin/{name}")).exists() if name != "default" else False
+    has_alias = any(Path(d, name).exists() for d in _ALIAS_BIN_DIRS) if name != "default" else False
 
     # Build token field names with concatenation to avoid redaction
     in_key = "total_in" + "put_tok" + "ens"

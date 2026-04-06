@@ -7,6 +7,7 @@ from textual.containers import Horizontal, Vertical
 from textual.widgets import Static, ProgressBar, Label
 
 from ..models import HUDState
+from . import CAPACITY_RED_PCT, CAPACITY_YELLOW_PCT
 
 
 class CapacityBar(Static):
@@ -24,9 +25,9 @@ class CapacityBar(Static):
         filled = int(pct / 100 * 30)
         empty = 30 - filled
 
-        if pct >= 95:
+        if pct >= CAPACITY_RED_PCT:
             color = "red"
-        elif pct >= 75:
+        elif pct >= CAPACITY_YELLOW_PCT:
             color = "yellow"
         else:
             color = "green"

@@ -9,6 +9,7 @@ from textual.widget import Widget
 from textual.widgets import Static
 
 from ..models import ProfileInfo, ProfilesState
+from . import CAPACITY_RED_PCT, CAPACITY_YELLOW_PCT
 
 
 def _capacity_bar(pct: float, width: int = 20) -> str:
@@ -17,9 +18,9 @@ def _capacity_bar(pct: float, width: int = 20) -> str:
     filled = int(clamped / 100 * width)
     empty = width - filled
 
-    if clamped >= 90:
+    if clamped >= CAPACITY_RED_PCT:
         color = "red"
-    elif clamped >= 70:
+    elif clamped >= CAPACITY_YELLOW_PCT:
         color = "yellow"
     else:
         color = "green"
@@ -172,7 +173,7 @@ def _render_profile_card(p: ProfileInfo) -> str:
 
     # ── Alias ──
     if p.has_alias:
-        lines.append(f"    Alias    [green]~/.local/bin/{p.name}[/green]")
+        lines.append(f"    Alias    [green]{p.name}[/green]  [dim](on PATH)[/dim]")
 
     return "\n".join(lines)
 

@@ -31,8 +31,10 @@ from .widgets.corrections_panel import CorrectionsPanel
 from .widgets.agents_panel import AgentsPanel
 from .collectors.agents import collect_agents
 from .collectors.profiles import collect_profiles
+from .collectors.patterns import collect_patterns
 from .widgets.boot_screen import OverviewNeofetch
 from .widgets.profiles_panel import ProfilesPanel
+from .widgets.patterns_panel import PatternsPanel
 
 
 # ── Theme palettes (derived from neofetch variants) ──
@@ -125,6 +127,7 @@ TAB_DEFS = [
     ("corrections", "✦ Corrections", "6"),
     ("agents",      "⚡ Agents",     "7"),
     ("profiles",    "▣ Profiles",    "8"),
+    ("patterns",    "◈ Patterns",    "9"),
 ]
 
 
@@ -211,6 +214,11 @@ class HermesHUD(App):
         border: solid $secondary;
     }
 
+    PatternsPanel {
+        margin: 1 2;
+        border: solid $warning;
+    }
+
     .status-line {
         margin: 0 2 1 2;
         height: auto;
@@ -275,7 +283,7 @@ class HermesHUD(App):
 
     def _load_data(self) -> None:
         """Collect all data and rebuild the dashboard tabs."""
-        with ThreadPoolExecutor(max_workers=7) as pool:
+        with ThreadPoolExecutor(max_workers=8) as pool:
             f_state = pool.submit(collect_all)
             f_cron = pool.submit(collect_cron)
             f_projects = pool.submit(collect_projects)
@@ -283,6 +291,7 @@ class HermesHUD(App):
             f_corrections = pool.submit(collect_corrections)
             f_agents = pool.submit(collect_agents)
             f_profiles = pool.submit(collect_profiles)
+            f_patterns = pool.submit(collect_patterns)
 
         self.state = f_state.result()
         cron = f_cron.result()
@@ -291,6 +300,7 @@ class HermesHUD(App):
         corrections = f_corrections.result()
         agents = f_agents.result()
         profiles = f_profiles.result()
+        patterns = f_patterns.result()
 
         self._populate_tab("dashboard", [
             OverviewPanel(self.state),
@@ -306,6 +316,7 @@ class HermesHUD(App):
         self._populate_tab("corrections", [CorrectionsPanel(corrections)])
         self._populate_tab("agents", [AgentsPanel(agents, cron)])
         self._populate_tab("profiles", [ProfilesPanel(profiles)])
+        self._populate_tab("patterns", [PatternsPanel(patterns)])
 
     def action_refresh(self) -> None:
         """Reload all data including overview."""

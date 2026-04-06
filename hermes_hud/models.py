@@ -151,6 +151,57 @@ class SessionsState:
         return dict(Counter(s.source for s in self.sessions))
 
 
+# ── Prompt Patterns ─────────────────────────────────────────
+
+@dataclass
+class TaskCluster:
+    label: str
+    count: int
+    avg_messages: float
+    avg_tool_calls: float
+    example_titles: list[str] = field(default_factory=list)
+
+
+@dataclass
+class RepeatedPrompt:
+    pattern: str
+    count: int
+    last_seen: datetime
+    could_be_skill: bool
+
+
+@dataclass
+class HourlyActivity:
+    hour: int
+    sessions: int
+    messages: int
+
+
+@dataclass
+class ToolWorkflow:
+    tool_sequence: list[str]
+    count: int
+
+
+@dataclass
+class PatternsState:
+    clusters: list[TaskCluster] = field(default_factory=list)
+    repeated_prompts: list[RepeatedPrompt] = field(default_factory=list)
+    hourly_activity: list[HourlyActivity] = field(default_factory=list)
+    tool_workflows: list[ToolWorkflow] = field(default_factory=list)
+    total_user_messages: int = 0
+
+    @property
+    def peak_hour(self) -> Optional[int]:
+        if not self.hourly_activity:
+            return None
+        return max(self.hourly_activity, key=lambda h: h.sessions).hour
+
+    @property
+    def skill_candidates(self) -> list[RepeatedPrompt]:
+        return [r for r in self.repeated_prompts if r.could_be_skill]
+
+
 # ── Config ──────────────────────────────────────────────────
 
 @dataclass

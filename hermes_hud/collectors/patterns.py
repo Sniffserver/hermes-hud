@@ -9,9 +9,9 @@ from datetime import datetime
 from pathlib import Path
 
 from ..models import HourlyActivity, PatternsState, RepeatedPrompt, TaskCluster, ToolWorkflow
-from .utils import default_hermes_dir, safe_get
+from .utils import default_hermes_dir, parse_timestamp, safe_get
 
-# Keyword lists for task cluster classification (checked in order — first match wins)
+# First match wins
 _CLUSTERS = [
     ("git ops",    ["commit", "push", "pull", "merge", "branch", "rebase", " pr ", "pull request", "release", "tag", "stash"]),
     ("debugging",  ["fix", "bug", "error", "broken", "failing", "crash", "traceback", "exception", "not work", "doesn't work"]),
@@ -33,39 +33,6 @@ def _classify(text: str) -> str:
 
 def _normalize_prompt(text: str) -> str:
     return text.strip().lower()[:80]
-
-
-def _extract_session_tool_sequences(db_path: str) -> list[list[str]]:
-    """Return ordered tool name lists per session."""
-    sequences: list[list[str]] = []
-    try:
-        conn = sqlite3.connect(db_path)
-        conn.row_factory = sqlite3.Row
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT session_id, tool_calls
-            FROM messages
-            WHERE tool_calls IS NOT NULL AND tool_calls != ''
-            ORDER BY session_id, timestamp ASC
-        """)
-        session_tools: dict[str, list[str]] = defaultdict(list)
-        for row in cur.fetchall():
-            try:
-                sid = safe_get(row, "session_id", "")
-                tc_json = safe_get(row, "tool_calls", "")
-                calls = json.loads(tc_json)
-                if isinstance(calls, list):
-                    for call in calls:
-                        name = call.get("function", {}).get("name", "")
-                        if name:
-                            session_tools[sid].append(name)
-            except Exception:
-                continue
-        conn.close()
-        sequences = list(session_tools.values())
-    except Exception:
-        pass
-    return sequences
 
 
 def _top_trigrams(sequences: list[list[str]], n: int = 10) -> list[ToolWorkflow]:
@@ -99,30 +66,33 @@ def collect_patterns(hermes_dir: str | None = None) -> PatternsState:
     prompt_counts: Counter = Counter()
     prompt_last_seen: dict[str, datetime] = {}
     total_user_messages = 0
+    session_tools: dict[str, list[str]] = defaultdict(list)
 
     try:
         conn = sqlite3.connect(db_path)
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
 
-        # Task clustering + repeated prompts — one query gets both
+        # Task clustering + repeated prompts via window function JOIN
         cur.execute("""
             SELECT s.id, s.title, s.message_count, s.tool_call_count, s.started_at,
-                   (SELECT m.content FROM messages m
-                    WHERE m.session_id = s.id AND m.role = 'user'
-                    ORDER BY m.timestamp ASC LIMIT 1) as first_msg
+                   fm.content AS first_msg
             FROM sessions s
+            LEFT JOIN (
+                SELECT session_id, content,
+                       ROW_NUMBER() OVER (PARTITION BY session_id ORDER BY timestamp ASC) AS rn
+                FROM messages WHERE role = 'user'
+            ) fm ON fm.session_id = s.id AND fm.rn = 1
             ORDER BY s.started_at DESC
         """)
 
-        for row in cur.fetchall():
+        for row in cur:
             try:
                 first_msg = safe_get(row, "first_msg") or ""
                 title = safe_get(row, "title") or ""
-                msg_count = safe_get(row, "message_count", 0) or 0
-                tool_count = safe_get(row, "tool_call_count", 0) or 0
-                started_raw = safe_get(row, "started_at", 0)
-                started = datetime.fromtimestamp(started_raw) if started_raw else datetime.now()
+                msg_count = safe_get(row, "message_count", 0)
+                tool_count = safe_get(row, "tool_call_count", 0)
+                started = parse_timestamp(safe_get(row, "started_at")) or datetime.now()
 
                 combined = f"{first_msg} {title}"
                 label = _classify(combined)
@@ -133,7 +103,6 @@ def collect_patterns(hermes_dir: str | None = None) -> PatternsState:
                 if first_msg and len(bucket["titles"]) < 3:
                     bucket["titles"].append(title or first_msg[:50])
 
-                # Repeated prompts
                 if first_msg:
                     norm = _normalize_prompt(first_msg)
                     prompt_counts[norm] += 1
@@ -158,14 +127,34 @@ def collect_patterns(hermes_dir: str | None = None) -> PatternsState:
             ORDER BY hour
         """)
         hour_map: dict[int, HourlyActivity] = {}
-        for row in cur.fetchall():
+        for row in cur:
             try:
-                h = safe_get(row, "hour", 0) or 0
+                h = safe_get(row, "hour", 0)
                 hour_map[h] = HourlyActivity(
                     hour=h,
-                    sessions=safe_get(row, "sessions", 0) or 0,
-                    messages=safe_get(row, "messages", 0) or 0,
+                    sessions=safe_get(row, "sessions", 0),
+                    messages=safe_get(row, "messages", 0),
                 )
+            except Exception:
+                continue
+
+        # Tool sequences (single connection, cursor iteration)
+        cur.execute("""
+            SELECT session_id, tool_calls
+            FROM messages
+            WHERE tool_calls IS NOT NULL AND tool_calls != ''
+            ORDER BY session_id, timestamp ASC
+        """)
+        for row in cur:
+            try:
+                sid = safe_get(row, "session_id", "")
+                tc_json = safe_get(row, "tool_calls", "")
+                calls = json.loads(tc_json)
+                if isinstance(calls, list):
+                    for call in calls:
+                        name = call.get("function", {}).get("name", "")
+                        if name:
+                            session_tools[sid].append(name)
             except Exception:
                 continue
 
@@ -173,7 +162,6 @@ def collect_patterns(hermes_dir: str | None = None) -> PatternsState:
     except Exception:
         return PatternsState()
 
-    # Build clusters (skip empty)
     clusters = []
     for label, bucket in cluster_buckets.items():
         if bucket["count"] == 0:
@@ -187,7 +175,6 @@ def collect_patterns(hermes_dir: str | None = None) -> PatternsState:
         ))
     clusters.sort(key=lambda c: -c.count)
 
-    # Build repeated prompts (seen more than once)
     repeated = []
     for norm, count in prompt_counts.most_common(15):
         if count < 2:
@@ -199,12 +186,8 @@ def collect_patterns(hermes_dir: str | None = None) -> PatternsState:
             could_be_skill=count >= 3,
         ))
 
-    # Fill all 24 hours
     hourly = [hour_map.get(h, HourlyActivity(hour=h, sessions=0, messages=0)) for h in range(24)]
-
-    # Tool workflows
-    sequences = _extract_session_tool_sequences(db_path)
-    workflows = _top_trigrams(sequences)
+    workflows = _top_trigrams(list(session_tools.values()))
 
     return PatternsState(
         clusters=clusters,

@@ -192,6 +192,10 @@ class PatternsState:
     total_user_messages: int = 0
 
     @property
+    def total_sessions(self) -> int:
+        return sum(c.count for c in self.clusters)
+
+    @property
     def peak_hour(self) -> Optional[int]:
         if not self.hourly_activity:
             return None

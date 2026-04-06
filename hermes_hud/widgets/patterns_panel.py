@@ -8,6 +8,8 @@ from textual.widgets import Static
 
 from ..models import PatternsState
 
+_SPARKLINE_BLOCKS = " ▁▂▃▄▅▆▇█"
+
 
 class PatternsPanel(Static):
     """Panel showing prompt pattern analytics."""
@@ -16,7 +18,6 @@ class PatternsPanel(Static):
     PatternsPanel {
         height: auto;
         padding: 1 2;
-        border: solid $warning;
     }
     """
 
@@ -26,23 +27,21 @@ class PatternsPanel(Static):
 
     def compose(self) -> ComposeResult:
         p = self.patterns
-        total_sessions = sum(c.count for c in p.clusters)
 
         yield Static("[bold]◈ PROMPT PATTERNS[/bold]")
         yield Static(
             f"  Analyzed: [bold]{p.total_user_messages:,}[/bold] user messages "
-            f"across [bold]{total_sessions}[/bold] sessions"
+            f"across [bold]{p.total_sessions}[/bold] sessions"
         )
         yield Static("")
 
-        # ── Task Clusters ──
         yield Static("  [bold underline]What You Use The Agent For[/bold underline]")
         if p.clusters:
             max_count = p.clusters[0].count
             for c in p.clusters:
                 bar_len = int(c.count / max(max_count, 1) * 28)
                 bar = "█" * bar_len + "░" * (28 - bar_len)
-                pct = int(c.count / max(total_sessions, 1) * 100)
+                pct = int(c.count / max(p.total_sessions, 1) * 100)
                 yield Static(
                     f"  [bold]{c.label:<12}[/bold] [cyan]{bar}[/cyan] "
                     f"{c.count} sessions ({pct}%)  "
@@ -52,16 +51,13 @@ class PatternsPanel(Static):
             yield Static("  [dim]No session data[/dim]")
         yield Static("")
 
-        # ── Peak Hours ──
         yield Static("  [bold underline]When You Work[/bold underline]")
         if p.hourly_activity:
             max_sessions = max(h.sessions for h in p.hourly_activity) or 1
-            # Sparkline using block chars
-            _blocks = " ▁▂▃▄▅▆▇█"
             parts = []
             for h in p.hourly_activity:
-                idx = int(h.sessions / max_sessions * (len(_blocks) - 1))
-                char = _blocks[idx]
+                idx = int(h.sessions / max_sessions * (len(_SPARKLINE_BLOCKS) - 1))
+                char = _SPARKLINE_BLOCKS[idx]
                 if h.sessions == max_sessions and max_sessions > 0:
                     parts.append(f"[green]{h.hour:02d}[bold]{char}[/bold][/green]")
                 elif h.sessions > max_sessions * 0.5:
@@ -78,7 +74,6 @@ class PatternsPanel(Static):
                 )
         yield Static("")
 
-        # ── Repeated Requests ──
         yield Static("  [bold underline]Repeated Requests[/bold underline]")
         if p.repeated_prompts:
             for r in p.repeated_prompts:
@@ -98,7 +93,6 @@ class PatternsPanel(Static):
             yield Static("  [dim]No repeated requests detected[/dim]")
         yield Static("")
 
-        # ── Tool Workflows ──
         yield Static("  [bold underline]Common Tool Chains[/bold underline]")
         if p.tool_workflows:
             max_wf = p.tool_workflows[0].count if p.tool_workflows else 1

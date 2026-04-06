@@ -13,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from .utils import parse_timestamp, default_hermes_dir
+from .utils import parse_timestamp, default_hermes_dir, safe_get
 
 
 @dataclass
@@ -502,24 +502,26 @@ def _get_recent_sessions(hermes_dir: str, limit: int = 10) -> list[RecentSession
         """, (limit,))
 
         for row in cursor.fetchall():
-            started = None
-            duration = None
-            started = parse_timestamp(row["started_at"])
-            if started:
-                ended = parse_timestamp(row["ended_at"])
-                if ended:
-                    duration = round((ended - started).total_seconds() / 60, 1)
+            try:
+                started = parse_timestamp(safe_get(row, "started_at"))
+                duration = None
+                if started:
+                    ended = parse_timestamp(safe_get(row, "ended_at"))
+                    if ended:
+                        duration = round((ended - started).total_seconds() / 60, 1)
 
-            sessions.append(RecentSession(
-                session_id=row["id"],
-                source=row["source"] or "unknown",
-                title=row["title"],
-                started_at=started,
-                message_count=row["msg_count"] or 0,
-                tool_call_count=row["tool_count"] or 0,
-                model=row["model"],
-                duration_minutes=duration,
-            ))
+                sessions.append(RecentSession(
+                    session_id=safe_get(row, "id", ""),
+                    source=safe_get(row, "source", "unknown"),
+                    title=safe_get(row, "title"),
+                    started_at=started,
+                    message_count=safe_get(row, "msg_count", 0),
+                    tool_call_count=safe_get(row, "tool_count", 0),
+                    model=safe_get(row, "model"),
+                    duration_minutes=duration,
+                ))
+            except Exception:
+                continue
 
         conn.close()
     except Exception:

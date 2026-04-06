@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 
 from ..models import DailyStats, SessionInfo, SessionsState
-from .utils import default_hermes_dir
+from .utils import default_hermes_dir, safe_get
 
 
 def _extract_tool_usage(db_path: str) -> dict[str, int]:
@@ -66,34 +66,40 @@ def collect_sessions(hermes_dir: str | None = None) -> SessionsState:
         """)
 
         for row in cursor.fetchall():
-            started = datetime.fromtimestamp(row["started_at"])
-            ended = datetime.fromtimestamp(row["ended_at"]) if row["ended_at"] else None
+            try:
+                started_raw = safe_get(row, "started_at", 0)
+                started = datetime.fromtimestamp(started_raw)
+                ended_raw = safe_get(row, "ended_at")
+                ended = datetime.fromtimestamp(ended_raw) if ended_raw else None
 
-            # Try to extract model from model_config JSON
-            model = None
-            if row["model_config"]:
-                try:
-                    mc = json.loads(row["model_config"])
-                    model = mc.get("model") or mc.get("default")
-                except (json.JSONDecodeError, TypeError):
-                    pass
+                # Try to extract model from model_config JSON
+                model = None
+                mc_raw = safe_get(row, "model_config")
+                if mc_raw:
+                    try:
+                        mc = json.loads(mc_raw)
+                        model = mc.get("model") or mc.get("default")
+                    except (json.JSONDecodeError, TypeError):
+                        pass
 
-            sessions.append(SessionInfo(
-                id=row["id"],
-                source=row["source"] or "unknown",
-                title=row["title"],
-                started_at=started,
-                ended_at=ended,
-                message_count=row["message_count"] or 0,
-                tool_call_count=row["tool_call_count"] or 0,
-                input_tokens=row["input_tokens"] or 0,
-                output_tokens=row["output_tokens"] or 0,
-                cache_read_tokens=row["cache_read_tokens"] or 0,
-                cache_write_tokens=row["cache_write_tokens"] or 0,
-                reasoning_tokens=row["reasoning_tokens"] or 0,
-                estimated_cost_usd=row["estimated_cost_usd"] or 0.0,
-                model=model,
-            ))
+                sessions.append(SessionInfo(
+                    id=safe_get(row, "id", ""),
+                    source=safe_get(row, "source", "unknown"),
+                    title=safe_get(row, "title"),
+                    started_at=started,
+                    ended_at=ended,
+                    message_count=safe_get(row, "message_count", 0),
+                    tool_call_count=safe_get(row, "tool_call_count", 0),
+                    input_tokens=safe_get(row, "input_tokens", 0),
+                    output_tokens=safe_get(row, "output_tokens", 0),
+                    cache_read_tokens=safe_get(row, "cache_read_tokens", 0),
+                    cache_write_tokens=safe_get(row, "cache_write_tokens", 0),
+                    reasoning_tokens=safe_get(row, "reasoning_tokens", 0),
+                    estimated_cost_usd=safe_get(row, "estimated_cost_usd", 0.0),
+                    model=model,
+                ))
+            except Exception:
+                continue
 
         # Daily stats
         cursor.execute("""
@@ -108,13 +114,16 @@ def collect_sessions(hermes_dir: str | None = None) -> SessionsState:
         """)
 
         for row in cursor.fetchall():
-            daily_stats.append(DailyStats(
-                date=row["day"],
-                sessions=row["sessions"],
-                messages=row["msgs"] or 0,
-                tool_calls=row["tools"] or 0,
-                tokens=row["tokens"] or 0,
-            ))
+            try:
+                daily_stats.append(DailyStats(
+                    date=safe_get(row, "day", ""),
+                    sessions=safe_get(row, "sessions", 0),
+                    messages=safe_get(row, "msgs", 0),
+                    tool_calls=safe_get(row, "tools", 0),
+                    tokens=safe_get(row, "tokens", 0),
+                ))
+            except Exception:
+                continue
 
         conn.close()
     except Exception as e:

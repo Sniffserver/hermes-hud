@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 
-from .utils import default_hermes_dir
+from .utils import default_hermes_dir, safe_get
 import re
 import sqlite3
 from dataclasses import dataclass, field
@@ -147,33 +147,37 @@ def _extract_session_corrections(hermes_dir: str) -> list[Correction]:
                 """, (f"%{pattern_word}%",))
 
                 for row in cursor.fetchall():
-                    content = row["content"] or ""
-                    # Filter out false positives (very short or very long messages)
-                    if len(content) < 10 or len(content) > 2000:
+                    try:
+                        content = safe_get(row, "content", "") or ""
+                        # Filter out false positives (very short or very long messages)
+                        if len(content) < 10 or len(content) > 2000:
+                            continue
+
+                        # Extract context around the keyword
+                        lower = content.lower()
+                        idx = lower.find(pattern_word.lower())
+                        if idx >= 0:
+                            start = max(0, idx - 40)
+                            end = min(len(content), idx + len(pattern_word) + 60)
+                            context = content[start:end].strip()
+                            if start > 0:
+                                context = "..." + context
+                            if end < len(content):
+                                context += "..."
+                        else:
+                            context = content[:100]
+
+                        ts_raw = safe_get(row, "timestamp")
+                        corrections.append(Correction(
+                            timestamp=datetime.fromtimestamp(ts_raw) if ts_raw else None,
+                            source="session",
+                            summary=context,
+                            detail=content[:300],
+                            session_title=safe_get(row, "title"),
+                            severity="minor",
+                        ))
+                    except Exception:
                         continue
-
-                    # Extract context around the keyword
-                    lower = content.lower()
-                    idx = lower.find(pattern_word.lower())
-                    if idx >= 0:
-                        start = max(0, idx - 40)
-                        end = min(len(content), idx + len(pattern_word) + 60)
-                        context = content[start:end].strip()
-                        if start > 0:
-                            context = "..." + context
-                        if end < len(content):
-                            context += "..."
-                    else:
-                        context = content[:100]
-
-                    corrections.append(Correction(
-                        timestamp=datetime.fromtimestamp(row["timestamp"]),
-                        source="session",
-                        summary=context,
-                        detail=content[:300],
-                        session_title=row["title"],
-                        severity="minor",
-                    ))
             except sqlite3.OperationalError:
                 continue
 

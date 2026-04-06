@@ -25,6 +25,18 @@ def default_projects_dir(projects_dir: str | None = None) -> str:
     return os.environ.get("HERMES_HUD_PROJECTS_DIR", os.path.expanduser("~/projects"))
 
 
+def safe_get(row, key, default=None):
+    """Safely access a column from a sqlite3.Row or tuple.
+
+    Returns default if the column is missing, access fails, or value is None.
+    """
+    try:
+        val = row[key]
+        return val if val is not None else default
+    except (IndexError, KeyError):
+        return default
+
+
 def parse_timestamp(value) -> Optional[datetime]:
     """Parse a timestamp from various formats (unix int/float, ISO string).
 

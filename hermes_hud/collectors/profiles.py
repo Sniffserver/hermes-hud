@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 from urllib.request import urlopen
 from urllib.error import URLError
 
-from .utils import default_hermes_dir
+from .utils import default_hermes_dir, safe_get
 from ..models import ProfileInfo, ProfilesState
 
 
@@ -134,15 +134,15 @@ def _read_session_stats(profile_dir: Path) -> dict:
         cur.execute(query)
         row = cur.fetchone()
         if row:
-            stats["session_count"] = row[0]
-            stats["message_count"] = row[1]
-            stats["tool_call_count"] = row[2]
-            stats["total_in" + "put_tok" + "ens"] = row[3]
-            stats["total_out" + "put_tok" + "ens"] = row[4]
-            if row[5]:
+            stats["session_count"] = safe_get(row, 0, 0)
+            stats["message_count"] = safe_get(row, 1, 0)
+            stats["tool_call_count"] = safe_get(row, 2, 0)
+            stats["total_in" + "put_tok" + "ens"] = safe_get(row, 3, 0)
+            stats["total_out" + "put_tok" + "ens"] = safe_get(row, 4, 0)
+            last_raw = safe_get(row, 5)
+            if last_raw:
                 try:
-                    ts = float(row[5])
-                    stats["last_active"] = datetime.fromtimestamp(ts)
+                    stats["last_active"] = datetime.fromtimestamp(float(last_raw))
                 except (ValueError, TypeError, OSError):
                     pass
         conn.close()

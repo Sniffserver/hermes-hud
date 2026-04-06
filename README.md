@@ -20,7 +20,7 @@ Hermes HUD reads from `~/.hermes/` and surfaces everything the agent knows about
 
 ## Features
 
-- **Interactive TUI** — 8 tabs, keyboard navigation, 4 color themes
+- **Interactive TUI** — 9 tabs, keyboard navigation, 4 color themes
 - **Themed Boot Screen** — Gradient ANSI art intro with personality
 - **Growth Tracking** — Snapshot diffs show what changed since yesterday
 - **Cron Monitor** — Scheduled jobs and their execution history
@@ -29,6 +29,7 @@ Hermes HUD reads from `~/.hermes/` and surfaces everything the agent knows about
 - **Corrections Log** — Every mistake the agent made and what it learned
 - **Profiles** — All agent profiles: model, backend, memory, session stats, service status
 - **tmux Operator View** — Maps live agents to panes, jump hints, operator queue for approvals and errors
+- **Prompt Patterns** — Task clustering, repeated request detection, peak hours, common tool chains
 
 ---
 
@@ -84,7 +85,7 @@ hermes-hud --help       # Show all options
 
 | Key | Action |
 |-----|--------|
-| `1`-`8` | Switch tabs |
+| `1`-`9` | Switch tabs |
 | `j` / `k` | Scroll down / up |
 | `g` / `G` | Jump to top / bottom |
 | `r` | Refresh data |

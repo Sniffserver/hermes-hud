@@ -4,6 +4,42 @@ All notable changes to Hermes HUD are documented here.
 
 ---
 
+## [0.5.0] — 2026-04-06
+
+### Prompt Patterns Tab
+
+The HUD could show you *what* the agent did — sessions, tools, memory — but never *how you use it*. The new Patterns tab (press `9`) analyzes your session history and surfaces actionable self-improvement insights.
+
+**What's new:**
+
+- **Task clustering** — classifies every session by first user message into categories (git ops, debugging, code gen, refactor, research, config/ops, docs) with bar chart and percentages
+- **Repeated request detection** — normalizes and groups first prompts across sessions; flags patterns seen 3+ times as skill candidates with a yellow bolt icon
+- **Peak hours** — 24-hour sparkline showing when you're most active, with peak hour callout
+- **Common tool chains** — extracts the most frequent 3-tool sequences across all sessions (e.g., Read → Edit → Bash)
+
+**Also in this release:**
+
+- **Hardcoded values eliminated** — memory limits in `profiles.py` now import from `memory.py` constants; snapshot dir respects `HERMES_HOME`; health panel critical keys are provider-aware; capacity bar thresholds unified across all widgets
+- **Health auto-discovery** — API keys/tokens found in `.env` that aren't in the expected list are now surfaced automatically
+- **Agent process list expanded** — aider, cursor, windsurf added to scanned processes
+- **Alias detection** — checks both `~/.local/bin` and `/usr/local/bin` (was Linux-only)
+
+**Files added:**
+- `hermes_hud/collectors/patterns.py` — queries sessions + messages tables with window function JOIN, single DB connection for all 4 analytics
+- `hermes_hud/widgets/patterns_panel.py` — Rich markup display with sparklines, bar charts, and skill candidate flags
+
+**Files changed:**
+- `hermes_hud/models.py` — `PatternsState`, `TaskCluster`, `RepeatedPrompt`, `HourlyActivity`, `ToolWorkflow` dataclasses
+- `hermes_hud/hud.py` — tab 9 wired with CSS, keybinding, parallel collector
+- `hermes_hud/collectors/health.py` — auto-discover extra API keys from .env
+- `hermes_hud/widgets/health_panel.py` — provider-aware critical key detection
+- `hermes_hud/collectors/profiles.py` — import memory constants, cross-platform alias detection
+- `hermes_hud/widgets/overview.py`, `profiles_panel.py` — shared capacity bar thresholds
+- `hermes_hud/snapshot.py` — respects `HERMES_HOME` for snapshot dir
+- `hermes_hud/widgets/__init__.py` — `CAPACITY_RED_PCT`, `CAPACITY_YELLOW_PCT` constants
+
+---
+
 ## [0.4.0] — 2026-04-05
 
 ### tmux Operator View

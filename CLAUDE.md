@@ -44,6 +44,7 @@ hermes_hud/
 │   ├── corrections.py    # Mistakes/lessons from memory
 │   ├── agents.py         # Live agent processes
 │   ├── profiles.py       # Agent profiles — config, stats, services
+│   ├── patterns.py       # Prompt pattern analytics
 │   └── timeline.py       # Growth events
 └── widgets/              # Textual panels (one per tab)
     ├── boot_screen.py       # Animated overview widget
@@ -57,6 +58,7 @@ hermes_hud/
     ├── corrections_panel.py # Corrections log
     ├── agents_panel.py      # Agent processes
     ├── profiles_panel.py    # Agent profiles
+    ├── patterns_panel.py    # Prompt pattern analytics
     ├── diff_panel.py        # Snapshot diffs
     └── timeline_panel.py    # Growth timeline
 ```

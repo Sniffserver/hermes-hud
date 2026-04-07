@@ -11,6 +11,11 @@ from textual.widgets import Static
 from ..collectors.agents import AgentsState
 from ..collectors.cron import CronState
 
+def _esc(text: str) -> str:
+    """Escape [ in user data so Textual never interprets it as markup."""
+    return text.replace("[", "\\[")
+
+
 _ALERT_COLORS = {
     "approval": "yellow",
     "question": "cyan",
@@ -56,9 +61,9 @@ class AgentsPanel(Widget):
                 color = _ALERT_COLORS.get(alert.alert_type, "dim")
                 jump = f"  [dim]→ {alert.jump_hint}[/dim]" if alert.jump_hint else ""
                 lines.append(
-                    f"  [{color}]⚠[/{color}] [bold]{alert.agent_name}[/bold]"
+                    f"  [{color}]⚠[/{color}] [bold]{_esc(alert.agent_name)}[/bold]"
                     f"  [dim][{alert.alert_type}][/dim]"
-                    f"  \"{alert.summary}\"{jump}"
+                    f"  \"{_esc(alert.summary)}\"{jump}"
                 )
             lines.append("")
 
@@ -80,7 +85,7 @@ class AgentsPanel(Widget):
                     cmd = agent.cmdline
                     if len(cmd) > 70:
                         cmd = cmd[:67] + "..."
-                    lines.append(f"  [dim]    {cmd}[/dim]")
+                    lines.append(f"  [dim]    {_esc(cmd)}[/dim]")
         else:
             lines.append("  [dim]  No agent processes running[/dim]")
 
@@ -100,8 +105,8 @@ class AgentsPanel(Widget):
             )
             lines.append("")
             for pane in unmatched:
-                ref = f"{pane.session_name}:{pane.window_index}.{pane.pane_index}"
-                lines.append(f"  [dim]  {pane.pane_id}  {ref}  {pane.current_command}  (unmatched)[/dim]")
+                ref = f"{_esc(pane.session_name)}:{pane.window_index}.{pane.pane_index}"
+                lines.append(f"  [dim]  {pane.pane_id}  {ref}  {_esc(pane.current_command)}  (unmatched)[/dim]")
             lines.append("")
 
         # ── Cron agents (autonomous) ──
@@ -170,7 +175,7 @@ class AgentsPanel(Widget):
                 if sess.started_at:
                     ts = f"{sess.started_at:%m-%d %H:%M}"
 
-                title = sess.title or "untitled"
+                title = _esc(sess.title or "untitled")
                 if len(title) > 40:
                     title = title[:37] + "..."
 

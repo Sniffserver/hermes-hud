@@ -9,58 +9,49 @@ Hermes HUD is a self-improvement dashboard for the Hermes Agent. It reads data f
 ## Running
 
 ```bash
-python3 -m venv venv       # Create virtual environment
-source venv/bin/activate   # Activate it
-pip install -e .           # Install in dev mode
+make dev                   # Create venv + install editable with neofetch extras
+source venv/bin/activate
 hermes-hud                 # Launch the TUI
 hermes-hud --help          # See all options
 ```
 
-Requires Python 3.11+ and deps from pyproject.toml (textual, pyyaml). Optional: pyfiglet for neofetch ASCII art (`pip install -e ".[neofetch]"`).
+Or manually: `python3 -m venv venv && source venv/bin/activate && pip install -e .`
+
+Requires Python 3.11+. Override Python version: `make venv PYTHON=python3.12`
+
+### CLI modes
+
+```bash
+hermes-hud --text          # Print HUDState summary to stdout (useful for scripting)
+hermes-hud --snapshot      # Save snapshot to ~/.hermes/.hud/snapshots.jsonl
+hermes-hud --ai            # AI awakening neofetch
+hermes-hud --br            # Blade Runner neofetch
+hermes-hud --fsociety      # fsociety/Mr. Robot neofetch
+hermes-hud --anime         # Mewtwo ASCII art neofetch
+```
+
+## Testing
+
+```bash
+make test                                          # Run full test suite
+python -m pytest tests/test_integration.py -v     # Single file
+python -m pytest -k "memory" -v                   # Filter by name
+```
+
+`tests/conftest.py` provides `fake_hermes_home` and `fake_projects_dir` fixtures that build a realistic `~/.hermes/` tree (sqlite3 state.db, config.yaml, YAML files, git repos). Tests use `monkeypatch` for env vars and module attributes.
 
 ## Architecture
 
 ```
 hermes_hud/
-├── __init__.py           # Package init, version
-├── hud.py                # Main Textual App + CLI entry point (main())
-├── collect.py            # Orchestrates all collectors into HUDState
-├── models.py             # Dataclasses: HUDState, MemoryState, etc.
-├── snapshot.py           # Snapshot/diff tracker
-├── neofetch_base.py      # Shared neofetch collector + display utils
-├── neofetch_ai.py        # AI theme neofetch
-├── neofetch_anime.py     # Mewtwo theme neofetch
-├── neofetch_br.py        # Blade Runner theme neofetch
-├── neofetch_fsociety.py  # fsociety theme neofetch
-├── collectors/           # Data collectors (one per source)
-│   ├── utils.py          # default_hermes_dir(), default_projects_dir()
-│   ├── memory.py         # ~/.hermes/memories/
-│   ├── skills.py         # ~/.hermes/skills/
-│   ├── sessions.py       # ~/.hermes/state.db
-│   ├── config.py         # ~/.hermes/config.yaml
-│   ├── cron.py           # ~/.hermes/cron/jobs.json
-│   ├── projects.py       # ~/projects/ git repos
-│   ├── health.py         # API keys, services
-│   ├── corrections.py    # Mistakes/lessons from memory
-│   ├── agents.py         # Live agent processes
-│   ├── profiles.py       # Agent profiles — config, stats, services
-│   ├── patterns.py       # Prompt pattern analytics
-│   └── timeline.py       # Growth events
-└── widgets/              # Textual panels (one per tab)
-    ├── boot_screen.py       # Animated overview widget
-    ├── overview.py          # Dashboard stats
-    ├── memory_panel.py      # Memory entries
-    ├── skills_panel.py      # Skill library
-    ├── sessions_panel.py    # Session analytics
-    ├── cron_panel.py        # Cron job monitor
-    ├── projects_panel.py    # Project tracker
-    ├── health_panel.py      # Health checks
-    ├── corrections_panel.py # Corrections log
-    ├── agents_panel.py      # Agent processes
-    ├── profiles_panel.py    # Agent profiles
-    ├── patterns_panel.py    # Prompt pattern analytics
-    ├── diff_panel.py        # Snapshot diffs
-    └── timeline_panel.py    # Growth timeline
+├── hud.py              # Main Textual App + CLI entry point
+├── collect.py          # Orchestrates collectors into HUDState
+├── models.py           # Dataclasses (HUDState, MemoryState, etc.)
+├── snapshot.py         # Snapshot/diff tracker
+├── neofetch_base.py    # Shared neofetch data collection + display utils
+├── neofetch_{ai,anime,br,fsociety}.py
+├── collectors/         # One collector per data source
+└── widgets/            # One Textual panel per tab
 ```
 
 **Data flow:** `collectors/ → collect.py → models.py → widgets/ → hud.py`
@@ -73,3 +64,6 @@ hermes_hud/
 - **Centralized paths**: All path resolution goes through `collectors/utils.py` (`default_hermes_dir()`, `default_projects_dir()`)
 - 4 registered themes (`hermes-ai`, `hermes-blade-runner`, `hermes-fsociety`, `hermes-anime`) in `hud.py`
 - Tabs are lazy-loaded on first switch via `on_tabbed_content_tab_activated`
+- **Concurrent collection**: `collect.py` uses `ThreadPoolExecutor(max_workers=4)` to parallelize collectors; config collector must complete first (memory limits depend on it). `hud.py._load_data()` uses `max_workers=8` for dashboard refresh.
+- **Graceful degradation**: `_check_hermes_data()` warns but doesn't exit if `~/.hermes/` is missing — all panels render empty, useful for demo/dev.
+- **Snapshot system**: `snapshot.py` captures point-in-time metrics for diff analysis. Snapshots stored as JSONL at `~/.hermes/.hud/snapshots.jsonl`.

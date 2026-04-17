@@ -82,36 +82,22 @@ def _load_dotenv_keys(dotenv_path: str) -> set[str]:
     return keys
 
 
-# Cache for dotenv keys
-_dotenv_cache: set[str] | None = None
-
-
 def _get_dotenv_keys(hermes_dir: str) -> set[str]:
     """Get all key names from hermes .env files."""
-    global _dotenv_cache
-    if _dotenv_cache is not None:
-        return _dotenv_cache
-
     keys: set[str] = set()
-    # Check multiple locations
     for env_path in [
         os.path.join(hermes_dir, ".env"),
         os.path.expanduser("~/.env"),
     ]:
         keys.update(_load_dotenv_keys(env_path))
-    _dotenv_cache = keys
     return keys
 
 
-def _check_env_key(name: str, hermes_dir: str = "") -> bool:
+def _check_env_key(name: str, dotenv_keys: set[str]) -> bool:
     """Check if a key is set in environment or .env files."""
-    # Check live environment first
     if os.environ.get(name, ""):
         return True
-    # Check .env files
-    if hermes_dir:
-        return name in _get_dotenv_keys(hermes_dir)
-    return False
+    return name in dotenv_keys
 
 
 def _check_process(name: str, pattern: str) -> ServiceStatus:
@@ -193,12 +179,11 @@ def collect_health(hermes_dir: str | None = None) -> HealthState:
         pass
 
     # API keys
-    global _dotenv_cache
-    _dotenv_cache = None  # Reset cache on each collection
+    dotenv_keys = _get_dotenv_keys(hermes_dir)
 
     known_names = {key_name for key_name, _, _ in EXPECTED_KEYS}
     for key_name, source, note in EXPECTED_KEYS:
-        present = _check_env_key(key_name, hermes_dir)
+        present = _check_env_key(key_name, dotenv_keys)
         state.keys.append(KeyStatus(
             name=key_name,
             source=source,
@@ -207,7 +192,7 @@ def collect_health(hermes_dir: str | None = None) -> HealthState:
         ))
 
     # Auto-discover any additional API keys/tokens found in .env files
-    for extra_key in sorted(_get_dotenv_keys(hermes_dir)):
+    for extra_key in sorted(dotenv_keys):
         if extra_key not in known_names:
             if any(extra_key.endswith(suffix) for suffix in ("_API_KEY", "_TOKEN", "_SECRET")):
                 state.keys.append(KeyStatus(

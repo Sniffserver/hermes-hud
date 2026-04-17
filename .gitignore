@@ -13,3 +13,4 @@ venv/
 *.swo
 *~
 .DS_Store
+PLAN-*.md

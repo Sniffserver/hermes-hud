@@ -116,10 +116,7 @@ class CronPanel(Static):
             if job.last_error:
                 yield Static(f"    [red bold]Error: {job.last_error}[/red bold]")
 
-            # Prompt preview
-            prompt_preview = job.prompt[:120]
-            if len(job.prompt) > 120:
-                prompt_preview += "..."
+            prompt_preview = (job.prompt[:120] + "...") if len(job.prompt) > 120 else job.prompt
             yield Static(f"    Prompt:    [dim]{prompt_preview}[/dim]")
 
             # Paused reason

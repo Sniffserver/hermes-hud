@@ -401,8 +401,8 @@ def main():
         return
 
     if "--snapshot" in sys.argv:
-        from .snapshot import take_snapshot
-        take_snapshot()
+        from .snapshot import main as snapshot_main
+        snapshot_main()
         return
 
     neofetch_map = {

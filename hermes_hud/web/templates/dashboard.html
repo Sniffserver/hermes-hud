@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Tribe HUD — Dashboard{% endblock %}
+{% block content %}
+<div id="dashboard-container" hx-ws="connect:/ws/hud">
+    <div id="connection-status" class="badge badge-disconnected">● Disconnected</div>
+
+    <div class="grid">
+        <!-- Health Check -->
+        <div class="panel" id="health-panel">
+            <h3>🏥 Health</h3>
+            <div id="health-data" hx-ws="on:message" hx-swap="innerHTML">
+                Loading...
+            </div>
+        </div>
+
+        <!-- Growth Tracker -->
+        <div class="panel" id="growth-panel">
+            <h3>📈 Growth</h3>
+            <div id="growth-data">Loading...</div>
+        </div>
+
+        <!-- Cron Monitor -->
+        <div class="panel" id="cron-panel">
+            <h3>⏱ Cron</h3>
+            <div id="cron-data">Loading...</div>
+        </div>
+
+        <!-- Project Tracker -->
+        <div class="panel" id="projects-panel">
+            <h3>📂 Projects</h3>
+            <div id="projects-data"
+                 hx-trigger="load, every 30s"
+                 hx-get="/api/fragments/projects"
+                 hx-swap="innerHTML">
+                Loading...
+            </div>
+        </div>
+
+        <!-- Corrections Log -->
+        <div class="panel" id="corrections-panel">
+            <h3>📝 Corrections</h3>
+            <div id="corrections-data">Loading...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+// WebSocket connection for live updates
+const ws = new WebSocket('ws://' + window.location.host + '/ws/hud');
+const statusEl = document.getElementById('connection-status');
+
+ws.onopen = () => {
+    statusEl.textContent = '● Connected';
+    statusEl.className = 'badge badge-connected';
+};
+
+ws.onclose = () => {
+    statusEl.textContent = '● Disconnected';
+    statusEl.className = 'badge badge-disconnected';
+};
+
+ws.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+    if (!msg.ok) return;
+    const d = msg.data;
+
+    // Update health
+    if (d.health) {
+        const h = d.health;
+        document.getElementById('health-data').innerHTML =
+            `<span class="ok">${h.services_ok} OK</span> | ` +
+            `<span class="error">${h.services_failed} Failed</span>`;
+    }
+
+    // Update growth
+    if (d.growth) {
+        const g = d.growth;
+        document.getElementById('growth-data').innerHTML =
+            `Skills: ${g.skills_count} | Sessions: ${g.sessions_count}`;
+    }
+
+    // Update cron
+    if (d.cron) {
+        const c = d.cron;
+        document.getElementById('cron-data').innerHTML =
+            `Jobs: ${c.jobs_count} | Last: ${c.last_run || 'never'}`;
+    }
+};
+</script>
+{% endblock %}

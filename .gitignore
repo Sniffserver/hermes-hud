@@ -1,16 +1,47 @@
+# ── Secrets — NEVER commit ──
+.env
+.env.*
+*.secret
+*.secrets
+*.key
+*.pem
+*.token
+*.credentials
+id_ed25519
+id_rsa
+id_ed25519.pub
+id_rsa.pub
+
+# ── Python ──
 __pycache__/
 *.pyc
 *.pyo
-*.egg-info/
-dist/
-build/
-.eggs/
-*.egg
 .venv/
 venv/
-.env
+env/
+dist/
+build/
+*.egg-info/
+.eggs/
+*.egg
+
+# ── App state / local data ──
+output/
+.hermes/
+*.log
+*.sqlite
+*.db
+snapshots/
+tmp/
+
+# ── OS ──
+.DS_Store
+Thumbs.db
 *.swp
 *.swo
 *~
-.DS_Store
-PLAN-*.md
+
+# ── Editor ──
+.vscode/
+.idea/
+*.iml

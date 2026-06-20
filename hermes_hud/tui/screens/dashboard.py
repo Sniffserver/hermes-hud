@@ -1,15 +1,10 @@
-"""Dashboard screen for Tribe HUD — unified operator view.
-
-Combines all widgets into a single tmux-style layout:
-- Top: Health Check (services status)
-- Middle: Growth Tracker (snapshot diffs) + Cron Monitor (jobs)
-- Bottom: Project Tracker (git repos) + Corrections Log (learnings)
-"""
+"""Dashboard screen for Tribe HUD — unified operator view."""
 
 from __future__ import annotations
 
 from textual.app import ComposeResult
-from textual.containers import Container, Horizontal, Vertical
+from textual.binding import Binding
+from textual.containers import Container, Horizontal, Vertical, Grid
 from textual.screen import Screen
 from textual.widgets import Header, Footer, Static
 
@@ -24,33 +19,26 @@ class DashboardScreen(Screen):
     """Main dashboard — all widgets in one view."""
 
     BINDINGS = [
-        ("q", "quit", "Quit"),
-        ("r", "refresh", "Refresh"),
-        ("d", "toggle_dark", "Dark mode"),
-        ("1", "focus_health", "Health"),
-        ("2", "focus_growth", "Growth"),
-        ("3", "focus_cron", "Cron"),
-        ("4", "focus_projects", "Projects"),
-        ("5", "focus_corrections", "Corrections"),
+        Binding("q", "quit", "Quit"),
+        Binding("r", "refresh", "Refresh"),
+        Binding("d", "toggle_dark", "Dark mode"),
+        Binding("1", "focus_health", "Health"),
+        Binding("2", "focus_growth", "Growth"),
+        Binding("3", "focus_cron", "Cron"),
+        Binding("4", "focus_projects", "Projects"),
+        Binding("5", "focus_corrections", "Corrections"),
     ]
 
     def compose(self) -> ComposeResult:
         yield Header()
         yield Footer()
 
-        with Container(id="dashboard"):
-            # Row 1: Health Check (full width)
+        with Container(id="dashboard-grid"):
             yield HealthCheckWidget(id="health-panel")
-
-            with Horizontal(id="row-2"):
-                # Row 2: Growth Tracker + Cron Monitor
-                yield GrowthTrackerWidget(id="growth-panel")
-                yield CronMonitorWidget(id="cron-panel")
-
-            with Horizontal(id="row-3"):
-                # Row 3: Project Tracker + Corrections Log
-                yield ProjectTrackerWidget(id="projects-panel")
-                yield CorrectionsLogWidget(id="corrections-panel")
+            yield GrowthTrackerWidget(id="growth-panel")
+            yield CronMonitorWidget(id="cron-panel")
+            yield ProjectTrackerWidget(id="projects-panel")
+            yield CorrectionsLogWidget(id="corrections-panel")
 
     def action_refresh(self) -> None:
         """Refresh all widgets."""

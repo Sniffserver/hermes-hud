@@ -1,7 +1,4 @@
-"""Tribe HUD Web Server — FastAPI + WebSocket for live dashboard.
-
-Serves the same data as the TUI but via HTTP/WebSocket for remote access.
-"""
+"""Tribe HUD Web Server — FastAPI + WebSocket for live dashboard."""
 
 from __future__ import annotations
 
@@ -33,6 +30,7 @@ def _to_json(obj: Any) -> Any:
     else:
         return str(obj)
 
+
 # ── App ────────────────────────────────────────────────────────────────────
 
 app = FastAPI(
@@ -51,18 +49,6 @@ app.add_middleware(
 # ── WebSocket Connections ─────────────────────────────────────────────────
 
 _connections: list[WebSocket] = []
-
-
-async def broadcast(data: dict[str, Any]) -> None:
-    """Broadcast data to all connected WebSocket clients."""
-    disconnected = []
-    for ws in _connections:
-        try:
-            await ws.send_json(data)
-        except Exception:
-            disconnected.append(ws)
-    for ws in disconnected:
-        _connections.remove(ws)
 
 
 # ── REST Endpoints ─────────────────────────────────────────────────────────
@@ -109,7 +95,8 @@ async def hud_stream(ws: WebSocket) -> None:
                 await ws.send_json({"ok": False, "error": str(e)})
             await asyncio.sleep(2)
     except WebSocketDisconnect:
-        _connections.remove(ws)
+        if ws in _connections:
+            _connections.remove(ws)
 
 
 # ── Dashboard HTML ────────────────────────────────────────────────────────
@@ -121,46 +108,170 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tribe HUD — Dashboard</title>
     <style>
+        /* Gruvbox Dark Theme */
+        :root {
+            --bg: #1d2021;
+            --bg-alt: #282828;
+            --bg-border: #504945;
+            --fg: #ebdbb2;
+            --fg-dim: #928374;
+            --accent: #fe8019;
+            --accent-alt: #fabd2f;
+            --green: #b8bb26;
+            --red: #fb4934;
+            --blue: #83a598;
+            --purple: #d3869b;
+            --cyan: #8ec07c;
+        }
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'JetBrains Mono', monospace; background: #1d2021; color: #ebdbb2; padding: 1rem; }
-        h1 { color: #fe8019; margin-bottom: 1rem; }
-        h2 { color: #fabd2f; margin: 1rem 0 0.5rem; font-size: 0.9rem; text-transform: uppercase; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; }
-        .panel { background: #282828; border: 1px solid #504945; border-radius: 4px; padding: 1rem; }
-        .panel h3 { color: #83a598; margin-bottom: 0.5rem; }
-        .status-ok { color: #b8bb26; }
-        .status-warn { color: #fabd2f; }
-        .status-error { color: #fb4934; }
-        table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-        th, td { padding: 0.3rem 0.5rem; text-align: left; border-bottom: 1px solid #3c3836; }
-        th { color: #928374; }
-        .timestamp { color: #7c6f64; font-size: 0.7rem; }
-        #connection-status { position: fixed; top: 0.5rem; right: 0.5rem; padding: 0.3rem 0.6rem; border-radius: 3px; font-size: 0.7rem; }
-        .connected { background: #b8bb26; color: #1d2021; }
-        .disconnected { background: #fb4934; color: #1d2021; }
+
+        body {
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            background: var(--bg);
+            color: var(--fg);
+            padding: 1rem;
+            line-height: 1.4;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0 1rem;
+            border-bottom: 1px solid var(--bg-border);
+            margin-bottom: 1rem;
+        }
+
+        .header h1 {
+            color: var(--accent);
+            font-size: 1.2rem;
+        }
+
+        .header .status {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 3px;
+        }
+
+        .status.connected { background: var(--green); color: var(--bg); }
+        .status.disconnected { background: var(--red); color: var(--bg); }
+
+        .timestamp {
+            color: var(--fg-dim);
+            font-size: 0.7rem;
+            margin-bottom: 1rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 1rem;
+        }
+
+        .panel {
+            background: var(--bg-alt);
+            border: 1px solid var(--bg-border);
+            border-radius: 4px;
+            padding: 1rem;
+        }
+
+        .panel h3 {
+            color: var(--blue);
+            margin-bottom: 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        .panel .summary {
+            font-size: 0.75rem;
+            color: var(--fg-dim);
+            margin-bottom: 0.5rem;
+        }
+
+        .panel table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.75rem;
+        }
+
+        .panel th, .panel td {
+            padding: 0.25rem 0.4rem;
+            text-align: left;
+            border-bottom: 1px solid var(--bg-border);
+        }
+
+        .panel th {
+            color: var(--fg-dim);
+            font-weight: normal;
+        }
+
+        .ok { color: var(--green); }
+        .warn { color: var(--accent-alt); }
+        .error { color: var(--red); }
+        .dim { color: var(--fg-dim); }
+
+        .refresh-btn {
+            background: var(--bg-alt);
+            border: 1px solid var(--bg-border);
+            color: var(--fg);
+            padding: 0.3rem 0.8rem;
+            border-radius: 3px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.75rem;
+        }
+
+        .refresh-btn:hover {
+            background: var(--bg-border);
+        }
     </style>
 </head>
 <body>
-    <div id="connection-status" class="disconnected">● Disconnected</div>
-    <h1>⚒ TRIBE HUD</h1>
+    <div class="header">
+        <h1>⚒ TRIBE HUD</h1>
+        <div>
+            <span id="connection-status" class="status disconnected">● Disconnected</span>
+            <button class="refresh-btn" onclick="location.reload()">↻ Refresh</button>
+        </div>
+    </div>
+
     <p class="timestamp" id="last-update">Waiting for data...</p>
 
     <div class="grid">
-        <div class="panel">
+        <div class="panel" id="health-panel">
             <h3>🏥 Health</h3>
-            <div id="health-data">Loading...</div>
+            <div class="summary" id="health-summary">Loading...</div>
+            <table id="health-table">
+                <thead><tr><th></th><th>Service</th><th>Status</th></tr></thead>
+                <tbody></tbody>
+            </table>
         </div>
-        <div class="panel">
+
+        <div class="panel" id="growth-panel">
             <h3>📈 Growth</h3>
-            <div id="growth-data">Loading...</div>
+            <div class="summary" id="growth-summary">Loading...</div>
+            <table id="growth-table">
+                <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+                <tbody></tbody>
+            </table>
         </div>
-        <div class="panel">
+
+        <div class="panel" id="cron-panel">
             <h3>⏱ Cron</h3>
-            <div id="cron-data">Loading...</div>
+            <div class="summary" id="cron-summary">Loading...</div>
+            <table id="cron-table">
+                <thead><tr><th>Job</th><th>Schedule</th><th>Status</th></tr></thead>
+                <tbody></tbody>
+            </table>
         </div>
-        <div class="panel">
+
+        <div class="panel" id="projects-panel">
             <h3>📂 Projects</h3>
-            <div id="projects-data">Loading...</div>
+            <div class="summary" id="projects-summary">Loading...</div>
+            <table id="projects-table">
+                <thead><tr><th>Repo</th><th>Branch</th><th>Status</th></tr></thead>
+                <tbody></tbody>
+            </table>
         </div>
     </div>
 
@@ -171,49 +282,61 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
         ws.onopen = () => {
             statusEl.textContent = '● Connected';
-            statusEl.className = 'connected';
+            statusEl.className = 'status connected';
         };
 
         ws.onclose = () => {
             statusEl.textContent = '● Disconnected';
-            statusEl.className = 'disconnected';
+            statusEl.className = 'status disconnected';
         };
 
         ws.onmessage = (event) => {
             const msg = JSON.parse(event.data);
             if (!msg.ok) return;
-            const data = msg.data;
+            const d = msg.data;
             updateEl.textContent = 'Last update: ' + new Date().toLocaleTimeString();
 
             // Health
-            if (data.health) {
-                const h = data.health;
-                document.getElementById('health-data').innerHTML =
-                    `Services: <span class="status-ok">${h.services_ok || 0} OK</span> | ` +
-                    `<span class="status-error">${h.services_failed || 0} Failed</span>`;
+            if (d.config) {
+                const model = d.config.model || 'unknown';
+                document.getElementById('health-summary').innerHTML =
+                    `Model: <span class="ok">${model}</span>`;
             }
 
-            // Growth
-            if (data.growth) {
-                const g = data.growth;
-                document.getElementById('growth-data').innerHTML =
-                    `Skills: ${g.skills_count || 0} | Sessions: ${g.sessions_count || 0}`;
+            // Growth (from snapshot data)
+            if (d.skills) {
+                const total = d.skills.total || 0;
+                const custom = d.skills.custom_count || 0;
+                document.getElementById('growth-summary').innerHTML =
+                    `Skills: <span class="ok">${total}</span> total, <span class="warn">${custom}</span> custom`;
             }
 
-            // Cron
-            if (data.cron) {
-                const c = data.cron;
-                document.getElementById('cron-data').innerHTML =
-                    `Jobs: ${c.jobs_count || 0} | Last run: ${c.last_run || 'never'}`;
+            // Sessions
+            if (d.sessions) {
+                const total = d.sessions.total_sessions || 0;
+                const msgs = d.sessions.total_messages || 0;
+                document.getElementById('cron-summary').innerHTML =
+                    `Sessions: <span class="ok">${total}</span>, Messages: <span class="ok">${msgs}</span>`;
             }
 
-            // Projects
-            if (data.projects) {
-                const p = data.projects;
-                document.getElementById('projects-data').innerHTML =
-                    `Repos: ${p.repos_count || 0} | Dirty: ${p.dirty_count || 0}`;
+            // Memory
+            if (d.memory) {
+                const entries = d.memory.entry_count || 0;
+                const chars = d.memory.total_chars || 0;
+                const max = d.memory.max_chars || 2200;
+                const pct = max > 0 ? Math.round(chars / max * 100) : 0;
+                document.getElementById('projects-summary').innerHTML =
+                    `Memory: <span class="ok">${entries}</span> entries, <span class="${pct > 80 ? 'warn' : 'ok'}">${pct}%</span> full`;
             }
         };
+
+        // Fallback: fetch state via REST if WebSocket fails
+        fetch('/api/state')
+            .then(r => r.json())
+            .then(msg => {
+                if (msg.ok) ws.onmessage({ data: JSON.stringify(msg) });
+            })
+            .catch(() => {});
     </script>
 </body>
 </html>

@@ -12,8 +12,8 @@ from dataclasses import dataclass
 from typing import Optional
 
 from textual.app import ComposeResult
-from textual.containers import Container
-from textual.widgets import DataTable, Static
+from textual.containers import Container, Horizontal
+from textual.widgets import DataTable, Static, Label
 
 
 # ── Data Model ────────────────────────────────────────────────────────────

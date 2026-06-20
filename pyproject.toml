@@ -3,16 +3,16 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "hermes-hud"
-version = "0.5.0"
-description = "Consciousness monitor for AI agents — interactive TUI dashboard"
+name = "tribe-hud"
+version = "1.0.0"
+description = "Tribe HUD — 500 Aasta Plaani agent consciousness monitor & TUI dashboard"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.11"
 authors=[
-    {name = "Joey Rodriguez"},
+    {name = "Sniffmarble / Tribe"},
 ]
-keywords = ["ai", "agent", "dashboard", "tui", "terminal", "neofetch", "hermes"]
+keywords = ["ai", "agent", "dashboard", "tui", "terminal", "neofetch", "hermes", "tribe"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",
@@ -31,14 +31,16 @@ dependencies = [
 
 [project.optional-dependencies]
 neofetch = ["pyfiglet>=1.0"]
+dev = ["pytest>=7.0", "pytest-asyncio>=0.21"]
 
 [project.urls]
-Homepage = "https://github.com/joeynyc/hermes-hud"
-Repository = "https://github.com/joeynyc/hermes-hud"
-Issues = "https://github.com/joeynyc/hermes-hud/issues"
+Homepage = "https://github.com/Sniffserver/hermes-hud"
+Repository = "https://github.com/Sniffserver/hermes-hud"
+Issues = "https://github.com/Sniffserver/hermes-hud/issues"
 
 [project.scripts]
 hermes-hud = "hermes_hud.hud:main"
+tribe-hud = "hermes_hud.tui.app:main"
 
 [tool.setuptools.packages.find]
 include = ["hermes_hud*"]

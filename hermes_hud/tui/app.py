@@ -57,11 +57,12 @@ class TribeHUDApp(App):
         yield Footer()
 
     def action_refresh(self) -> None:
-        for widget in self.query(HealthCheckWidget, GrowthTrackerWidget,
-                                   CronMonitorWidget, ProjectTrackerWidget,
-                                   CorrectionsLogWidget):
-            if hasattr(widget, "refresh_data"):
-                widget.refresh_data()
+        for WidgetCls in (HealthCheckWidget, GrowthTrackerWidget,
+                          CronMonitorWidget, ProjectTrackerWidget,
+                          CorrectionsLogWidget):
+            for widget in self.query(WidgetCls):
+                if hasattr(widget, "refresh_data"):
+                    widget.refresh_data()
 
     def action_boot(self) -> None:
         self.push_screen(BootScreen())

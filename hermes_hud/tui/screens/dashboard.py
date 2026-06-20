@@ -54,11 +54,12 @@ class DashboardScreen(Screen):
 
     def action_refresh(self) -> None:
         """Refresh all widgets."""
-        for widget in self.query(HealthCheckWidget, GrowthTrackerWidget,
-                                   CronMonitorWidget, ProjectTrackerWidget,
-                                   CorrectionsLogWidget):
-            if hasattr(widget, "refresh_data"):
-                widget.refresh_data()
+        for WidgetCls in (HealthCheckWidget, GrowthTrackerWidget,
+                          CronMonitorWidget, ProjectTrackerWidget,
+                          CorrectionsLogWidget):
+            for widget in self.query(WidgetCls):
+                if hasattr(widget, "refresh_data"):
+                    widget.refresh_data()
 
     def action_focus_health(self) -> None:
         self.query_one("#health-panel", HealthCheckWidget).focus()
